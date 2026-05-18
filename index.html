@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scenario Fan — Rolling Horizon Hydro-Thermal Scheduling</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+    --accent-dim: rgba(56,189,248,0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--panel); border-bottom: 2px solid var(--accent);
+    padding: 1rem 2rem; text-align: center;
+  }
+  header h1 { font-size: 1.4rem; color: var(--accent); }
+  header p { color: var(--muted); margin-top: 0.2rem; font-size: 0.85rem; }
+
+  .container { max-width: 1500px; margin: 0 auto; padding: 1rem 1.5rem; }
+
+  /* ── Portal toggle buttons ── */
+  .portal-bar {
+    display: flex; gap: 0; margin-bottom: 1rem;
+  }
+  .portal-btn {
+    flex: 1; padding: 0.65rem 1rem;
+    background: var(--panel); border: 1px solid var(--border);
+    color: var(--muted); font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; text-align: center;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .portal-btn:first-child { border-radius: 6px 0 0 6px; }
+  .portal-btn:last-child { border-radius: 0 6px 6px 0; }
+  .portal-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .portal-btn:hover:not(.active) { color: var(--accent); }
+
+  .portal-panel { display: none; }
+  .portal-panel.active { display: block; }
+
+  /* ── Forms ── */
+  .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .form-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+
+  .field { margin-bottom: 0.75rem; }
+  .field label {
+    display: block; font-size: 0.75rem; color: var(--muted);
+    margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .field label .unit { color: #64748b; font-weight: 400; text-transform: none; }
+  .field input, .field select {
+    width: 100%; padding: 0.45rem 0.6rem;
+    background: #0f172a; border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 0.85rem;
+    font-family: 'Consolas', 'Courier New', monospace;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .field input[type="file"] {
+    padding: 0.3rem 0.5rem; font-family: inherit;
+    cursor: pointer;
+  }
+  .field input[type="file"]::file-selector-button {
+    background: var(--border); border: none; color: var(--text);
+    padding: 0.3rem 0.75rem; border-radius: 3px; cursor: pointer;
+    margin-right: 0.5rem; font-size: 0.8rem;
+  }
+
+  .field-row {
+    display: flex; gap: 1rem; align-items: flex-end;
+  }
+  .field-row .field { flex: 1; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.25rem;
+  }
+  .card h3 {
+    font-size: 0.9rem; color: var(--accent);
+    margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .card-subtitle {
+    font-size: 0.75rem; color: var(--muted); margin-bottom: 0.75rem;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.5rem 1.25rem; border: none; border-radius: 4px;
+    font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-secondary:hover { background: #475569; }
+  .btn-green { background: #166534; color: var(--green); }
+  .btn-green:hover { background: #1a7a3e; }
+  .btn-amber { background: #5c4500; color: var(--yellow); }
+  .btn-amber:hover { background: #6b5000; }
+
+  .btn-row { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+
+  /* ── Status badge ── */
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.5rem 0.75rem; border-radius: 6px;
+    margin-bottom: 1rem; font-size: 0.8rem;
+  }
+  .status-row.defaults { background: var(--accent-dim); color: var(--accent); }
+  .status-row.custom { background: #5c4500; color: var(--yellow); }
+  .status-row.loaded { background: #166534; color: var(--green); }
+
+  /* ── JSON preview ── */
+  .json-preview {
+    background: #0f172a; border: 1px solid var(--border);
+    border-radius: 4px; padding: 0.75rem; margin-top: 0.75rem;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.75rem; max-height: 300px; overflow-y: auto;
+    white-space: pre-wrap; color: var(--muted);
+    display: none;
+  }
+  .json-preview.visible { display: block; }
+
+  /* ── Tabs ── */
+  .section-divider {
+    border: none; border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+  .tabs { display: flex; gap: 0; margin-bottom: 1rem; }
+  .tab {
+    padding: 0.5rem 1.25rem; background: var(--panel);
+    border: 1px solid var(--border); cursor: pointer;
+    color: var(--muted); font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  .tab:first-child { border-radius: 6px 0 0 6px; }
+  .tab:last-child { border-radius: 0 6px 6px 0; }
+  .tab.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── Misc ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-weight: 600; }
+  td { color: var(--muted); }
+
+  .kpi { font-size: 2rem; font-weight: 700; color: var(--accent); }
+  .kpi-label { font-size: 0.8rem; color: var(--muted); }
+
+  .flow-step {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+  }
+  .flow-step .idx {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+  }
+
+  .eq {
+    background: #0f172a; border: 1px solid var(--border);
+    border-radius: 4px; padding: 0.75rem 1rem;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.8rem; overflow-x: auto;
+    white-space: pre-wrap; color: var(--text); margin: 0.5rem 0;
+  }
+
+  .chart-placeholder {
+    width: 100%; height: 280px;
+    background: #0f172a; border: 1px dashed var(--border);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 0.85rem;
+  }
+
+  .module-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .module-chip {
+    padding: 0.3rem 0.75rem; border-radius: 999px;
+    font-size: 0.75rem; font-family: monospace;
+    background: #0f172a; border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .reset-link {
+    color: var(--accent); cursor: pointer; font-size: 0.75rem;
+    text-decoration: underline;
+  }
+
+  footer {
+    text-align: center; padding: 1.5rem;
+    color: var(--muted); font-size: 0.75rem;
+  }
+
+  /* ── Tooltip ── */
+  .info-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: var(--border); color: var(--muted);
+    font-size: 0.6rem; cursor: help; margin-left: 0.3rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Scenario Fan — Rolling Horizon Hydro-Thermal Scheduling</h1>
+  <p>Fansi-style two-stage stochastic LP &middot; Benders decomposition &middot; 9-reservoir cascade &middot; Wind integration</p>
+</header>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  STATUS BAR                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div id="status-bar" class="status-row defaults">
+  <span id="status-msg">Using default parameters — configure via portals below</span>
+  <span id="status-count">Defaults</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  PORTAL TOGGLE                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="portal-bar">
+  <div class="portal-btn active" onclick="switchPortal('data')">Data Import Portal</div>
+  <div class="portal-btn" onclick="switchPortal('params')">Parameter Settings Portal</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  DATA IMPORT PORTAL                               -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="portal-panel active" id="portal-data">
+  <div class="card">
+    <h3>Dataset Files</h3>
+    <div class="card-subtitle">
+      Select dataset files. Leave blank to use defaults from <code>a_dataset/</code>.
+      Paths are relative to the project root.
+    </div>
+
+    <div class="form-grid-3">
+      <div class="field">
+        <label>Regulated Inflow <span class="unit">[CSV]</span></label>
+        <input type="text" id="f-regulated" placeholder="a_dataset/regulated_inflow_newscen.csv"
+               value="a_dataset/regulated_inflow_newscen.csv">
+      </div>
+      <div class="field">
+        <label>Unregulated Inflow <span class="unit">[CSV]</span></label>
+        <input type="text" id="f-unregulated" placeholder="a_dataset/unregulated_inflow_newscen.csv"
+               value="a_dataset/unregulated_inflow_newscen.csv">
+      </div>
+      <div class="field">
+        <label>Load Consumption <span class="unit">[XLSX]</span></label>
+        <input type="text" id="f-load" placeholder="a_dataset/consumption-weekly-3years.xlsx"
+               value="a_dataset/consumption-weekly-3years.xlsx">
+      </div>
+      <div class="field">
+        <label>Wind Production <span class="unit">[XLSX]</span></label>
+        <input type="text" id="f-wind" placeholder="a_dataset/wind_production_inMWh.xlsx"
+               value="a_dataset/wind_production_inMWh.xlsx">
+      </div>
+      <div class="field">
+        <label>System Topology <span class="unit">[H5]</span></label>
+        <input type="text" id="f-topology" placeholder="a_dataset/topology.h5"
+               value="a_dataset/topology.h5">
+      </div>
+      <div class="field">
+        <label>Water Values (reference) <span class="unit">[CSV]</span></label>
+        <input type="text" id="f-watervalues" placeholder="a_dataset/watervalues_mm3.csv"
+               value="a_dataset/watervalues_mm3.csv">
+      </div>
+    </div>
+
+    <div class="field" style="margin-top: 0.75rem;">
+      <label>Output Directory</label>
+      <input type="text" id="f-output" value="output_c" placeholder="output_c">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="applyData()">Apply Data Paths</button>
+      <button class="btn btn-secondary" onclick="resetData()">Reset to Defaults</button>
+      <button class="btn btn-amber" onclick="exportConfig()">Export Config JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  PARAMETER SETTINGS PORTAL                        -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="portal-panel" id="portal-params">
+  <div class="card">
+    <h3>Model Parameters</h3>
+    <div class="card-subtitle">
+      All fields pre-filled with default values from Fansi/SOVN model.
+      Hover <span class="info-icon">?</span> for description.
+    </div>
+
+    <!-- Horizon & Scenarios -->
+    <div class="form-grid-4" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label>Days in Horizon <span class="info-icon" title="Total days in rolling window (default 364)">?</span></label>
+        <input type="number" id="p-nb-days" value="364" min="7" max="730">
+      </div>
+      <div class="field">
+        <label>Inflow Scenarios K <span class="info-icon" title="Number of historical inflow years used as scenario fan">?</span></label>
+        <input type="number" id="p-num-scen" value="10" min="1" max="80">
+      </div>
+      <div class="field">
+        <label>Wind Traces W <span class="info-icon" title="Wind production years per inflow scenario">?</span></label>
+        <input type="number" id="p-wind-scen" value="3" min="1" max="10">
+      </div>
+      <div class="field">
+        <label>Scenario Start Year <span class="info-icon" title="Offset into the dataset for scenario selection">?</span></label>
+        <input type="number" id="p-scen-set" value="0" min="0" max="3000">
+      </div>
+    </div>
+
+    <!-- Costs -->
+    <div class="form-grid-4" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label>Load Shedding Cost <span class="unit">[€/MWh]</span></label>
+        <input type="number" id="p-cost-shed" value="5000" min="0" step="100">
+      </div>
+      <div class="field">
+        <label>Spillage Cost <span class="unit">[€/m³s]</span></label>
+        <input type="number" id="p-cost-spl" value="100" min="0" step="10">
+      </div>
+      <div class="field">
+        <label>Bypass Cost <span class="unit">[€/m³s]</span></label>
+        <input type="number" id="p-cost-byp" value="80" min="0" step="10">
+      </div>
+      <div class="field">
+        <label>Wind Curtailment Cost <span class="unit">[€/MWh]</span></label>
+        <input type="number" id="p-cost-wind" value="0" min="0" step="1">
+      </div>
+    </div>
+
+    <!-- Physical -->
+    <div class="form-grid-4" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label>Max Load (Hydro Area) <span class="unit">[MW]</span></label>
+        <input type="number" id="p-load" value="350" min="0" step="10">
+      </div>
+      <div class="field">
+        <label>Wind Capacity <span class="unit">[MW]</span></label>
+        <input type="number" id="p-wind-cap" value="30" min="0" step="5">
+      </div>
+      <div class="field">
+        <label>Inflow Scaling Factor</label>
+        <input type="number" id="p-inflow-fac" value="1.0" min="0.1" max="10" step="0.1">
+      </div>
+      <div class="field">
+        <label>Load Area</label>
+        <select id="p-area">
+          <option value="NO1" selected>NO1 (Oslo)</option>
+          <option value="NO2">NO2 (Kristiansand)</option>
+          <option value="NO3">NO3 (Trondheim)</option>
+          <option value="NO4">NO4 (Tromsø)</option>
+          <option value="NO5">NO5 (Bergen)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Reservoir -->
+    <div class="form-grid-3" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label>Initial Reservoir Fraction <span class="info-icon" title="V_init = fac_res × V_max">?</span></label>
+        <input type="number" id="p-fac-res" value="0.65" min="0.1" max="1.0" step="0.01">
+      </div>
+      <div class="field">
+        <label>Reservoir Lower Bound <span class="info-icon" title="Minimum reservoir as fraction of V_max">?</span></label>
+        <input type="number" id="p-lb" value="0.10" min="0" max="0.5" step="0.01">
+      </div>
+      <div class="field">
+        <label>Conversion Factor <span class="unit">[Mm³/day per m³/s]</span></label>
+        <input type="number" id="p-conv" value="0.0864" step="0.0001" readonly style="opacity:0.6">
+      </div>
+    </div>
+
+    <!-- Solver -->
+    <div class="form-grid-3" style="margin-bottom: 1rem;">
+      <div class="field">
+        <label>Solver</label>
+        <select id="p-solver">
+          <option value="cplex_direct" selected>CPLEX Direct</option>
+          <option value="gurobi_direct">Gurobi Direct</option>
+          <option value="glpk">GLPK (open-source)</option>
+          <option value="cbc">CBC (open-source)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Benders Tolerance</label>
+        <input type="text" id="p-tol" value="0.001" style="font-family:monospace">
+      </div>
+      <div class="field">
+        <label>Max Benders Iterations</label>
+        <input type="number" id="p-max-iter" value="20" min="1" max="100">
+      </div>
+    </div>
+
+    <!-- JSON export preview -->
+    <div class="json-preview" id="json-preview"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="applyParams()">Apply Parameters</button>
+      <button class="btn btn-secondary" onclick="resetParams()">Reset to Defaults</button>
+      <button class="btn btn-green" onclick="exportConfig()">Export Config JSON</button>
+      <button class="btn btn-amber" onclick="toggleJsonPreview()">Preview JSON</button>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  KPI ROW                                          -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="grid-3" style="margin-bottom: 1.5rem;">
+  <div class="card">
+    <div class="kpi-label">Horizon</div>
+    <div class="kpi" id="kpi-horizon">364</div>
+    <div class="kpi-label">Days (rolling, daily step)</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Reservoirs</div>
+    <div class="kpi">9</div>
+    <div class="kpi-label">Cascade modules (49904–49912)</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Scenarios</div>
+    <div class="kpi" id="kpi-scenarios">10 × 3</div>
+    <div class="kpi-label">Inflow × Wind scenarios per day</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  METHODOLOGY & FORMULATION                        -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="grid-2" style="margin-bottom: 1.5rem;">
+  <div class="card">
+    <h3>Methodology</h3>
+    <div class="flow-step"><span class="idx">1</span><span>Read data: inflow (regulated + unregulated), load, wind production</span></div>
+    <div class="flow-step"><span class="idx">2</span><span>First stage: day-ahead dispatch with current reservoir state</span></div>
+    <div class="flow-step"><span class="idx">3</span><span>Second stage: K scenarios × W wind traces run in parallel for remaining horizon</span></div>
+    <div class="flow-step"><span class="idx">4</span><span>Extract Benders cuts: <b>Fixed</b> π = ∂(future cost) / ∂(reservoir volume)</span></div>
+    <div class="flow-step"><span class="idx">5</span><span>Iterate until reservoir convergence &lt; 0.001</span></div>
+    <div class="flow-step"><span class="idx">6</span><span>Advance 1 day, repeat for 364 days</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Objective Function — First Stage</h3>
+    <div class="eq">min  Σ<sub>t</sub> ( C<sup>shed</sup>·r<sub>t</sub> + C<sup>byp</sup>·q<sup>b</sup><sub>t</sub> + C<sup>spl</sup>·q<sup>s</sup><sub>t</sub> + C<sup>wind</sup>·w<sup>c</sup><sub>t</sub> ) + α</div>
+    <h3 style="margin-top: 0.75rem;">Benders Cut <span style="color:var(--green);font-size:0.7rem">FIXED</span></h3>
+    <div class="eq">α ≥ Σ<sub>k</sub> [ Obj<sup>k</sup><sub>RT</sub> + Σ<sub>m</sub> λ<sup>k</sup><sub>m</sub> · (V<sub>m,1</sub> − V̄<sup>k</sup><sub>m</sub>) ]</div>
+    <small style="color: var(--muted);">
+      λ = marginal water value (dual of reservoir balance).<br>
+      <span style="color:var(--green)">Fixed from original:</span> sign changed from <code style="color:var(--red)">-λ·(V+V̄)</code> to <code style="color:var(--green)">+λ·(V−V̄)</code>.
+    </small>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  RESERVOIR CASCADE TABLE                          -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <h3>Reservoir Cascade — 9 Modules</h3>
+  <div class="module-row">
+    <span class="module-chip">49904</span><span class="module-chip">49905</span>
+    <span class="module-chip">49906</span><span class="module-chip">49907</span>
+    <span class="module-chip">49908</span><span class="module-chip">49909</span>
+    <span class="module-chip">49910</span><span class="module-chip">49911</span>
+    <span class="module-chip">49912</span>
+  </div>
+  <table style="margin-top: 0.75rem;" id="param-table">
+    <tr><th>Parameter</th><th>Description</th><th>Value</th></tr>
+    <tr><td>C<sup>shed</sup></td><td>Load shedding cost</td><td id="tbl-shed">5000 €/MWh</td></tr>
+    <tr><td>C<sup>byp</sup></td><td>Bypass cost</td><td id="tbl-byp">80 €/MWh</td></tr>
+    <tr><td>C<sup>spl</sup></td><td>Spillage cost</td><td id="tbl-spl">100 €/MWh</td></tr>
+    <tr><td>LB</td><td>Reservoir lower bound fraction</td><td id="tbl-lb">0.10 · V<sub>max</sub></td></tr>
+    <tr><td>Conversion</td><td>m³/s → Mm³/day</td><td>0.0864</td></tr>
+    <tr><td>fac_res</td><td>Initial reservoir fraction</td><td id="tbl-fac">0.65 · V<sub>max</sub></td></tr>
+    <tr><td>Solver</td><td>LP/MIP solver</td><td id="tbl-solver">CPLEX Direct</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  RESULTS TABS                                     -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="tabs">
+  <div class="tab active" onclick="switchResultTab('hydro')">Hydro Production</div>
+  <div class="tab" onclick="switchResultTab('reservoir')">Reservoir Levels</div>
+  <div class="tab" onclick="switchResultTab('watervalue')">Water Values</div>
+  <div class="tab" onclick="switchResultTab('wind')">Wind</div>
+  <div class="tab" onclick="switchResultTab('spillage')">Spillage & Bypass</div>
+  <div class="tab" onclick="switchResultTab('prices')">Energy Prices</div>
+</div>
+
+<div class="tab-content active" id="tab-hydro">
+  <div class="card">
+    <h3>Hydro Power Production [MW]</h3>
+    <div class="chart-placeholder" id="chart-hydro">Run model to generate hydro production data</div>
+  </div>
+</div>
+<div class="tab-content" id="tab-reservoir">
+  <div class="card">
+    <h3>Reservoir Levels [Mm³]</h3>
+    <div class="chart-placeholder" id="chart-reservoir">Run model to generate reservoir level data</div>
+  </div>
+</div>
+<div class="tab-content" id="tab-watervalue">
+  <div class="card">
+    <h3>Marginal Water Values [€/Mm³]</h3>
+    <div class="chart-placeholder" id="chart-watervalue">Run model to generate water value data</div>
+  </div>
+</div>
+<div class="tab-content" id="tab-wind">
+  <div class="card">
+    <h3>Wind Power Production & Curtailment [MW]</h3>
+    <div class="chart-placeholder" id="chart-wind">Run model to generate wind data</div>
+  </div>
+</div>
+<div class="tab-content" id="tab-spillage">
+  <div class="card">
+    <h3>Spillage & Bypass [m³/s]</h3>
+    <div class="chart-placeholder" id="chart-spillage">Run model to generate spillage/bypass data</div>
+  </div>
+</div>
+<div class="tab-content" id="tab-prices">
+  <div class="card">
+    <h3>Energy Balance Dual (System Marginal Price) [€/MWh]</h3>
+    <div class="chart-placeholder" id="chart-prices">Run model to generate energy price data</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  DATA SOURCES TABLE                               -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="card" style="margin-top: 1.5rem;">
+  <h3>Configured Data Sources</h3>
+  <table id="data-source-table">
+    <tr><th>File</th><th>Content</th><th>Path</th></tr>
+    <tr><td>Regulated Inflow</td><td>Regulated inflow scenarios (Mm³/week)</td><td id="src-reg">a_dataset/regulated_inflow_newscen.csv</td></tr>
+    <tr><td>Unregulated Inflow</td><td>Unregulated inflow scenarios (Mm³/week)</td><td id="src-unreg">a_dataset/unregulated_inflow_newscen.csv</td></tr>
+    <tr><td>Load Consumption</td><td>Load profiles by NO area</td><td id="src-load">a_dataset/consumption-weekly-3years.xlsx</td></tr>
+    <tr><td>Wind Production</td><td>Wind production time series</td><td id="src-wind">a_dataset/wind_production_inMWh.xlsx</td></tr>
+    <tr><td>System Topology</td><td>Hydro/thermal cascade topology</td><td id="src-topo">a_dataset/topology.h5</td></tr>
+    <tr><td>Water Values</td><td>Reference water values (ProdRisk SDDP)</td><td id="src-wv">a_dataset/watervalues_mm3.csv</td></tr>
+  </table>
+</div>
+
+</div><!-- /.container -->
+
+<footer>
+  Scenario Fan Rolling Horizon Model &middot; SINTEF Fansi/SOVN framework &middot; Pyomo + CPLEX
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  DEFAULTS
+// ══════════════════════════════════════════════════════
+const DEFAULTS = {
+  data: {
+    regulated: 'a_dataset/regulated_inflow_newscen.csv',
+    unregulated: 'a_dataset/unregulated_inflow_newscen.csv',
+    load: 'a_dataset/consumption-weekly-3years.xlsx',
+    wind: 'a_dataset/wind_production_inMWh.xlsx',
+    topology: 'a_dataset/topology.h5',
+    watervalues: 'a_dataset/watervalues_mm3.csv',
+    output: 'output_c'
+  },
+  params: {
+    nb_day_steps: 364,
+    num_scenarios: 10,
+    wind_scenarios: 3,
+    scenarioset: 0,
+    cost_shedding: 5000,
+    cost_spillage: 100,
+    cost_bypass: 80,
+    cost_wind_curt: 0,
+    max_load_hydro: 350,
+    max_wind_cap: 30,
+    inflow_factor: 1.0,
+    load_area: 'NO1',
+    fac_res: 0.65,
+    lb: 0.10,
+    conversion: 0.0864,
+    solver: 'cplex_direct',
+    benders_tol: 0.001,
+    max_benders_iter: 20
+  }
+};
+
+// ══════════════════════════════════════════════════════
+//  STATE (loaded from localStorage or defaults)
+// ══════════════════════════════════════════════════════
+let state = loadState();
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('fansi_config');
+    if (saved) return JSON.parse(saved);
+  } catch (e) { /* ignore corrupt data */ }
+  return JSON.parse(JSON.stringify(DEFAULTS)); // deep copy
+}
+
+function saveState() {
+  localStorage.setItem('fansi_config', JSON.stringify(state));
+  updateStatusBar();
+  updateKPI();
+  updateParamTable();
+  updateDataSourceTable();
+}
+
+// ══════════════════════════════════════════════════════
+//  PORTAL SWITCHING
+// ══════════════════════════════════════════════════════
+function switchPortal(name) {
+  document.querySelectorAll('.portal-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.portal-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.portal-btn[onclick="switchPortal('${name}')"]`).classList.add('active');
+  document.getElementById('portal-' + name).classList.add('active');
+}
+
+function switchResultTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchResultTab('${name}')"]`).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════
+//  DATA IMPORT
+// ══════════════════════════════════════════════════════
+function applyData() {
+  state.data.regulated   = document.getElementById('f-regulated').value.trim()   || DEFAULTS.data.regulated;
+  state.data.unregulated = document.getElementById('f-unregulated').value.trim() || DEFAULTS.data.unregulated;
+  state.data.load        = document.getElementById('f-load').value.trim()        || DEFAULTS.data.load;
+  state.data.wind        = document.getElementById('f-wind').value.trim()        || DEFAULTS.data.wind;
+  state.data.topology    = document.getElementById('f-topology').value.trim()    || DEFAULTS.data.topology;
+  state.data.watervalues = document.getElementById('f-watervalues').value.trim() || DEFAULTS.data.watervalues;
+  state.data.output      = document.getElementById('f-output').value.trim()      || DEFAULTS.data.output;
+  saveState();
+}
+
+function resetData() {
+  state.data = JSON.parse(JSON.stringify(DEFAULTS.data));
+  populateDataForm();
+  saveState();
+}
+
+function populateDataForm() {
+  document.getElementById('f-regulated').value   = state.data.regulated;
+  document.getElementById('f-unregulated').value = state.data.unregulated;
+  document.getElementById('f-load').value        = state.data.load;
+  document.getElementById('f-wind').value        = state.data.wind;
+  document.getElementById('f-topology').value    = state.data.topology;
+  document.getElementById('f-watervalues').value = state.data.watervalues;
+  document.getElementById('f-output').value      = state.data.output;
+}
+
+// ══════════════════════════════════════════════════════
+//  PARAMETER SETTINGS
+// ══════════════════════════════════════════════════════
+function applyParams() {
+  state.params.nb_day_steps    = intVal('p-nb-days', DEFAULTS.params.nb_day_steps);
+  state.params.num_scenarios   = intVal('p-num-scen', DEFAULTS.params.num_scenarios);
+  state.params.wind_scenarios  = intVal('p-wind-scen', DEFAULTS.params.wind_scenarios);
+  state.params.scenarioset     = intVal('p-scen-set', DEFAULTS.params.scenarioset);
+  state.params.cost_shedding   = floatVal('p-cost-shed', DEFAULTS.params.cost_shedding);
+  state.params.cost_spillage   = floatVal('p-cost-spl', DEFAULTS.params.cost_spillage);
+  state.params.cost_bypass     = floatVal('p-cost-byp', DEFAULTS.params.cost_bypass);
+  state.params.cost_wind_curt  = floatVal('p-cost-wind', DEFAULTS.params.cost_wind_curt);
+  state.params.max_load_hydro  = floatVal('p-load', DEFAULTS.params.max_load_hydro);
+  state.params.max_wind_cap    = floatVal('p-wind-cap', DEFAULTS.params.max_wind_cap);
+  state.params.inflow_factor   = floatVal('p-inflow-fac', DEFAULTS.params.inflow_factor);
+  state.params.load_area       = document.getElementById('p-area').value || DEFAULTS.params.load_area;
+  state.params.fac_res         = floatVal('p-fac-res', DEFAULTS.params.fac_res);
+  state.params.lb              = floatVal('p-lb', DEFAULTS.params.lb);
+  state.params.conversion      = floatVal('p-conv', DEFAULTS.params.conversion);
+  state.params.solver          = document.getElementById('p-solver').value || DEFAULTS.params.solver;
+  state.params.benders_tol     = floatVal('p-tol', DEFAULTS.params.benders_tol);
+  state.params.max_benders_iter = intVal('p-max-iter', DEFAULTS.params.max_benders_iter);
+  saveState();
+}
+
+function resetParams() {
+  state.params = JSON.parse(JSON.stringify(DEFAULTS.params));
+  populateParamsForm();
+  saveState();
+}
+
+function populateParamsForm() {
+  const p = state.params;
+  document.getElementById('p-nb-days').value    = p.nb_day_steps;
+  document.getElementById('p-num-scen').value   = p.num_scenarios;
+  document.getElementById('p-wind-scen').value  = p.wind_scenarios;
+  document.getElementById('p-scen-set').value   = p.scenarioset;
+  document.getElementById('p-cost-shed').value  = p.cost_shedding;
+  document.getElementById('p-cost-spl').value   = p.cost_spillage;
+  document.getElementById('p-cost-byp').value   = p.cost_bypass;
+  document.getElementById('p-cost-wind').value  = p.cost_wind_curt;
+  document.getElementById('p-load').value       = p.max_load_hydro;
+  document.getElementById('p-wind-cap').value   = p.max_wind_cap;
+  document.getElementById('p-inflow-fac').value = p.inflow_factor;
+  document.getElementById('p-area').value       = p.load_area;
+  document.getElementById('p-fac-res').value    = p.fac_res;
+  document.getElementById('p-lb').value         = p.lb;
+  document.getElementById('p-conv').value       = p.conversion;
+  document.getElementById('p-solver').value     = p.solver;
+  document.getElementById('p-tol').value        = p.benders_tol;
+  document.getElementById('p-max-iter').value   = p.max_benders_iter;
+}
+
+// ── helpers ──
+function intVal(id, fallback) {
+  const v = parseInt(document.getElementById(id).value);
+  return isNaN(v) ? fallback : v;
+}
+function floatVal(id, fallback) {
+  const v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? fallback : v;
+}
+
+// ══════════════════════════════════════════════════════
+//  JSON EXPORT
+// ══════════════════════════════════════════════════════
+function exportConfig() {
+  // Sync form state first
+  applyData();
+  applyParams();
+
+  const config = {
+    data_paths: state.data,
+    parameters: state.params,
+    modules: ['49904','49905','49906','49907','49908','49909','49910','49911','49912'],
+    exported_at: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'fansi_config.json';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  // Show preview
+  document.getElementById('json-preview').textContent = JSON.stringify(config, null, 2);
+  document.getElementById('json-preview').classList.add('visible');
+}
+
+function toggleJsonPreview() {
+  const preview = document.getElementById('json-preview');
+  if (!preview.classList.contains('visible')) {
+    // Build preview from current form state (without applying)
+    const temp = {
+      data_paths: {
+        regulated:   document.getElementById('f-regulated').value.trim()   || DEFAULTS.data.regulated,
+        unregulated: document.getElementById('f-unregulated').value.trim() || DEFAULTS.data.unregulated,
+        load:        document.getElementById('f-load').value.trim()        || DEFAULTS.data.load,
+        wind:        document.getElementById('f-wind').value.trim()        || DEFAULTS.data.wind,
+        topology:    document.getElementById('f-topology').value.trim()    || DEFAULTS.data.topology,
+        watervalues: document.getElementById('f-watervalues').value.trim() || DEFAULTS.data.watervalues,
+        output:      document.getElementById('f-output').value.trim()      || DEFAULTS.data.output,
+      },
+      parameters: {
+        nb_day_steps:    intVal('p-nb-days', DEFAULTS.params.nb_day_steps),
+        num_scenarios:   intVal('p-num-scen', DEFAULTS.params.num_scenarios),
+        wind_scenarios:  intVal('p-wind-scen', DEFAULTS.params.wind_scenarios),
+        scenarioset:     intVal('p-scen-set', DEFAULTS.params.scenarioset),
+        cost_shedding:   floatVal('p-cost-shed', DEFAULTS.params.cost_shedding),
+        cost_spillage:   floatVal('p-cost-spl', DEFAULTS.params.cost_spillage),
+        cost_bypass:     floatVal('p-cost-byp', DEFAULTS.params.cost_bypass),
+        cost_wind_curt:  floatVal('p-cost-wind', DEFAULTS.params.cost_wind_curt),
+        max_load_hydro:  floatVal('p-load', DEFAULTS.params.max_load_hydro),
+        max_wind_cap:    floatVal('p-wind-cap', DEFAULTS.params.max_wind_cap),
+        inflow_factor:   floatVal('p-inflow-fac', DEFAULTS.params.inflow_factor),
+        load_area:       document.getElementById('p-area').value,
+        fac_res:         floatVal('p-fac-res', DEFAULTS.params.fac_res),
+        lb:              floatVal('p-lb', DEFAULTS.params.lb),
+        conversion:      floatVal('p-conv', DEFAULTS.params.conversion),
+        solver:          document.getElementById('p-solver').value,
+        benders_tol:     floatVal('p-tol', DEFAULTS.params.benders_tol),
+        max_benders_iter: intVal('p-max-iter', DEFAULTS.params.max_benders_iter),
+      }
+    };
+    document.getElementById('json-preview').textContent = JSON.stringify(temp, null, 2);
+    document.getElementById('json-preview').classList.add('visible');
+  } else {
+    document.getElementById('json-preview').classList.remove('visible');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  STATUS BAR
+// ══════════════════════════════════════════════════════
+function updateStatusBar() {
+  const bar = document.getElementById('status-bar');
+  const msg = document.getElementById('status-msg');
+  const cnt = document.getElementById('status-count');
+
+  const isDefault = JSON.stringify(state) === JSON.stringify(DEFAULTS);
+  if (isDefault) {
+    bar.className = 'status-row defaults';
+    msg.textContent = 'Using default parameters — configure via portals above';
+    cnt.textContent = 'Defaults';
+  } else {
+    bar.className = 'status-row custom';
+    msg.textContent = 'Custom configuration active — settings saved to browser storage';
+    cnt.textContent = 'Custom';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  KPI + TABLE UPDATES
+// ══════════════════════════════════════════════════════
+function updateKPI() {
+  document.getElementById('kpi-horizon').textContent = state.params.nb_day_steps;
+  document.getElementById('kpi-scenarios').textContent =
+    state.params.num_scenarios + ' × ' + state.params.wind_scenarios;
+}
+
+function updateParamTable() {
+  document.getElementById('tbl-shed').innerHTML = state.params.cost_shedding + ' €/MWh';
+  document.getElementById('tbl-byp').innerHTML  = state.params.cost_bypass + ' €/MWh';
+  document.getElementById('tbl-spl').innerHTML  = state.params.cost_spillage + ' €/MWh';
+  document.getElementById('tbl-lb').innerHTML   = state.params.lb.toFixed(2) + ' · V<sub>max</sub>';
+  document.getElementById('tbl-fac').innerHTML  = state.params.fac_res.toFixed(2) + ' · V<sub>max</sub>';
+
+  const solverNames = {
+    'cplex_direct': 'CPLEX Direct',
+    'gurobi_direct': 'Gurobi Direct',
+    'glpk': 'GLPK (open-source)',
+    'cbc': 'CBC (open-source)'
+  };
+  document.getElementById('tbl-solver').textContent =
+    solverNames[state.params.solver] || state.params.solver;
+}
+
+function updateDataSourceTable() {
+  document.getElementById('src-reg').textContent   = state.data.regulated;
+  document.getElementById('src-unreg').textContent = state.data.unregulated;
+  document.getElementById('src-load').textContent  = state.data.load;
+  document.getElementById('src-wind').textContent  = state.data.wind;
+  document.getElementById('src-topo').textContent  = state.data.topology;
+  document.getElementById('src-wv').textContent    = state.data.watervalues;
+}
+
+// ══════════════════════════════════════════════════════
+//  LOAD RESULT DATA
+// ══════════════════════════════════════════════════════
+async function loadResults() {
+  const bar = document.getElementById('status-bar');
+  try {
+    const resp = await fetch('output_c/data_output0.txt');
+    if (resp.ok) {
+      bar.className = 'status-row loaded';
+      document.getElementById('status-msg').textContent = 'Results found — model output available';
+      document.getElementById('status-count').textContent = 'Data Loaded';
+    }
+  } catch {
+    // No results yet — that's fine
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+function init() {
+  populateDataForm();
+  populateParamsForm();
+  updateStatusBar();
+  updateKPI();
+  updateParamTable();
+  updateDataSourceTable();
+  loadResults();
+}
+
+init();
+</script>
+
+</body>
+</html>
