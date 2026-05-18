@@ -15,7 +15,7 @@ from c.run import rolling_horizon, run_fansi
 
 
 def fansi_rolling(loc_re, loc_un, loc_load, num_scen=1, scenarioset=0,
-                  wind_sec=3, wind_max=50, inflow_factor=1, load=400):
+                  wind_sec=3, wind_max=50, inflow_factor=1, load=350):
     """Legacy wrapper returning (results, elapsed_seconds, benders_data).
 
     See c.run.rolling_horizon for the refactored version.

@@ -86,25 +86,6 @@ V_{t+1} − V_t = 0.0864 × (I_reg + I_unreg − q_d − q_b − q_s + upstream_
 
 Unit conversion: m³/s × 86400 s/day ÷ 10⁶ = 0.0864 Mm³/day.
 
-## Bugs Found and Fixed
-
-### Critical Bugs
-
-| Bug | Location | Description | Fix |
-|-----|----------|-------------|-----|
-| Benders cut sign error | `solver.py:113` | Formula used `-λ·(V+V̄)` — made α **increase** with more water | Changed to `+λ·(V−V̄)` — correct Taylor expansion |
-| Scenario probability ×3 | `config.py:57` | `Pr = 1/num_scenarios` ignored wind dimension, inflating Benders cut by factor `wind_scenarios=3` | `Pr = 1/(num_scenarios × wind_scenarios)` |
-| `rolling_horizon` not imported | `Rolling_scenario_fan.py:14` | `NameError` when calling legacy `fansi_rolling()` | Added to import |
-| `model_fs.InitRes` after loop | `run.py:65` | `InitRes` only exists when `batch=1`; after loop `batch=364`, access raises `AttributeError` | Capture day-1 initial reservoir before loop |
-
-### Risk Fixes
-
-| Issue | Location | Fix |
-|-------|----------|-----|
-| Convergence: `abs(sum(...))` allows cross-module cancellation | `solver.py:145` | Changed to `sum(abs(...))` |
-| `rt_reservoir` dict overwrites on each `k` | `solver.py:127` | Use `k=1` explicitly instead of nested comprehension |
-| `load_data_fs` loop overwrites key | `io.py:47` | Direct indexing `[0][0]` since `nb_day_steps_da=1` |
-| `model.H.data()` non-portable Pyomo API | `io.py:113,122` | Changed to standard `for h in model.H` |
 
 ## Configuration
 

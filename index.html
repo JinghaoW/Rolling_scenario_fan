@@ -459,7 +459,7 @@
     <div class="flow-step"><span class="idx">1</span><span>Read data: inflow (regulated + unregulated), load, wind production</span></div>
     <div class="flow-step"><span class="idx">2</span><span>First stage: day-ahead dispatch with current reservoir state</span></div>
     <div class="flow-step"><span class="idx">3</span><span>Second stage: K scenarios × W wind traces run in parallel for remaining horizon</span></div>
-    <div class="flow-step"><span class="idx">4</span><span>Extract Benders cuts: <b>Fixed</b> π = ∂(future cost) / ∂(reservoir volume)</span></div>
+    <div class="flow-step"><span class="idx">4</span><span>Extract Benders cuts:  π = ∂(future cost) / ∂(reservoir volume)</span></div>
     <div class="flow-step"><span class="idx">5</span><span>Iterate until reservoir convergence &lt; 0.001</span></div>
     <div class="flow-step"><span class="idx">6</span><span>Advance 1 day, repeat for 364 days</span></div>
   </div>
@@ -467,11 +467,11 @@
   <div class="card">
     <h3>Objective Function — First Stage</h3>
     <div class="eq">min  Σ<sub>t</sub> ( C<sup>shed</sup>·r<sub>t</sub> + C<sup>byp</sup>·q<sup>b</sup><sub>t</sub> + C<sup>spl</sup>·q<sup>s</sup><sub>t</sub> + C<sup>wind</sup>·w<sup>c</sup><sub>t</sub> ) + α</div>
-    <h3 style="margin-top: 0.75rem;">Benders Cut <span style="color:var(--green);font-size:0.7rem">FIXED</span></h3>
+    <h3 style="margin-top: 0.75rem;">Benders Cut <span style="color:var(--green);font-size:0.7rem"></span></h3>
     <div class="eq">α ≥ Σ<sub>k</sub> [ Obj<sup>k</sup><sub>RT</sub> + Σ<sub>m</sub> λ<sup>k</sup><sub>m</sub> · (V<sub>m,1</sub> − V̄<sup>k</sup><sub>m</sub>) ]</div>
     <small style="color: var(--muted);">
       λ = marginal water value (dual of reservoir balance).<br>
-      <span style="color:var(--green)">Fixed from original:</span> sign changed from <code style="color:var(--red)">-λ·(V+V̄)</code> to <code style="color:var(--green)">+λ·(V−V̄)</code>.
+
     </small>
   </div>
 </div>
