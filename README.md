@@ -160,7 +160,7 @@ Self-contained report with Chart.js — no server needed. Includes:
 - Energy price (system lambda)
 
 ## Dependencies
-
+- The necessary packages are installed with `pip install -r requirements.txt`, including:
 - Python ≥ 3.9
 - Pyomo ≥ 6.0
 - CPLEX or Gurobi solver (GLPK/CBC for small tests)
