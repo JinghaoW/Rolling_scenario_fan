@@ -5,4 +5,5 @@
 /a_dataset/
 /output_c/
 __pycache__/
+.ipynb_checkpoints/
 *.py[cod]
