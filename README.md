@@ -81,6 +81,21 @@ docker compose run --rm fansi 0 --solver glpk --scenarios 5 --json
 docker compose run --rm fansi --help
 ```
 
+### Pull the image from GitHub
+
+Every push to `master` publishes a prebuilt image to GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/jinghaow/rolling_scenario_fan:latest
+docker run --rm \
+  -v "$(pwd)/a_dataset:/app/a_dataset:ro" \
+  -v "$(pwd)/output_c:/app/output_c" \
+  ghcr.io/jinghaow/rolling_scenario_fan:latest 0 --solver glpk --json
+```
+
+Tags beginning with `v` (for example, `v1.0.0`) also publish a matching image
+tag. The image contains the application and GLPK, but datasets remain external.
+
 The default command is equivalent to:
 
 ```bash
