@@ -1,9 +1,0 @@
-/CLAUDE.md
-/.claude/
-/.idea/
-/.venv/
-/a_dataset/
-/output_c/
-__pycache__/
-.ipynb_checkpoints/
-*.py[cod]
