@@ -1,7 +1,17 @@
-"""Model parameters and constants for the Fansi rolling-horizon hydro-thermal scheduler."""
+"""Model parameters and configuration loading for the Fansi scheduler."""
 
+import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from pathlib import Path
+from typing import Dict, List
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _project_path(relative_path: str) -> str:
+    """Resolve a user path independently of the process working directory."""
+    path = Path(relative_path).expanduser()
+    return str(path if path.is_absolute() else PROJECT_ROOT / path)
 
 # 9-reservoir cascade module IDs (from SINTEF topology)
 MODULES: List[str] = ['49904', '49905', '49906', '49907', '49908', '49909', '49910', '49911', '49912']
@@ -41,12 +51,13 @@ class ModelParams:
     max_benders_iter: int = 20       # safety cap on iterations
 
     # --- File paths ---
-    loc_regulated: str = 'a_dataset/regulated_inflow_newscen.csv'
-    loc_unregulated: str = 'a_dataset/unregulated_inflow_newscen.csv'
-    loc_load: str = 'a_dataset/consumption-weekly-3years.xlsx'
-    loc_wind: str = 'a_dataset/wind_production_inMWh.xlsx'
-    loc_topology: str = 'a_dataset/topology.h5'
-    loc_output_dir: str = 'output_c'
+    loc_regulated: str = field(default_factory=lambda: _project_path('a_dataset/regulated_inflow_newscen.csv'))
+    loc_unregulated: str = field(default_factory=lambda: _project_path('a_dataset/unregulated_inflow_newscen.csv'))
+    loc_load: str = field(default_factory=lambda: _project_path('a_dataset/consumption-weekly-3years.xlsx'))
+    loc_wind: str = field(default_factory=lambda: _project_path('a_dataset/wind_production_inMWh.xlsx'))
+    loc_topology: str = field(default_factory=lambda: _project_path('a_dataset/topology.h5'))
+    loc_watervalues: str = field(default_factory=lambda: _project_path('a_dataset/watervalues_mm3.csv'))
+    loc_output_dir: str = field(default_factory=lambda: _project_path('output_c'))
 
     # --- Areas ---
     areas: List[str] = field(default_factory=lambda: ['hydro'])
@@ -69,3 +80,42 @@ class ModelParams:
     @property
     def fac_res(self) -> float:
         return self.init_reservoir_frac
+
+    @classmethod
+    def from_json(cls, config_path: str):
+        """Load the JSON configuration exported by ``index.html``."""
+        path = Path(config_path).expanduser().resolve()
+        with path.open(encoding='utf-8') as config_file:
+            config = json.load(config_file)
+
+        data_paths = config.get('data_paths', {})
+        parameters = config.get('parameters', {})
+        if not isinstance(data_paths, dict) or not isinstance(parameters, dict):
+            raise ValueError('Config fields "data_paths" and "parameters" must be objects')
+
+        path_fields = {
+            'regulated': 'loc_regulated',
+            'unregulated': 'loc_unregulated',
+            'load': 'loc_load',
+            'wind': 'loc_wind',
+            'topology': 'loc_topology',
+            'watervalues': 'loc_watervalues',
+            'output': 'loc_output_dir',
+        }
+        parameter_aliases = {
+            'fac_res': 'init_reservoir_frac',
+            'lb': 'lb_reservoir_frac',
+            'solver': 'solver_name',
+        }
+        valid_parameters = set(cls.__dataclass_fields__) - set(path_fields.values())
+
+        values = {}
+        for key, value in data_paths.items():
+            if key in path_fields:
+                values[path_fields[key]] = _project_path(value)
+        for key, value in parameters.items():
+            field_name = parameter_aliases.get(key, key)
+            if field_name in valid_parameters:
+                values[field_name] = value
+
+        return cls(**values)

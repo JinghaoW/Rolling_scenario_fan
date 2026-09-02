@@ -113,20 +113,22 @@ def run_fansi(index: int, params: ModelParams = None, fmt: str = 'csv'):
     return results, elapsed
 
 
-if __name__ == '__main__':
+def main(argv=None):
+    """Command-line entry point for module and installed-script execution."""
     parser = argparse.ArgumentParser(
         description='Fansi rolling-horizon hydro-thermal scheduler')
-    parser.add_argument('index', type=int, help='Scenario set index')
+    parser.add_argument('index', type=int, nargs='?', help='Scenario set index (overrides config)')
+    parser.add_argument('--config', help='JSON configuration exported by index.html')
     parser.add_argument('--json', action='store_true', help='Save as JSON')
     parser.add_argument('--html', action='store_true', help='Save as HTML report')
     parser.add_argument('--all', action='store_true', help='Save all formats (CSV+JSON+HTML)')
-    parser.add_argument('--load', type=float, default=350, help='Max load [MW]')
-    parser.add_argument('--wind', type=float, default=30, help='Wind capacity [MW]')
-    parser.add_argument('--scenarios', type=int, default=10, help='Number of inflow scenarios')
-    parser.add_argument('--wind-scenarios', type=int, default=3, help='Number of wind traces')
-    parser.add_argument('--solver', default='cplex_direct', help='Pyomo solver name')
+    parser.add_argument('--load', type=float, help='Max load [MW] (overrides config)')
+    parser.add_argument('--wind', type=float, help='Wind capacity [MW] (overrides config)')
+    parser.add_argument('--scenarios', type=int, help='Number of inflow scenarios (overrides config)')
+    parser.add_argument('--wind-scenarios', type=int, help='Number of wind traces (overrides config)')
+    parser.add_argument('--solver', help='Pyomo solver name (overrides config)')
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.all:
         fmt = 'all'
@@ -137,12 +139,22 @@ if __name__ == '__main__':
     else:
         fmt = 'csv'
 
-    params = ModelParams(
-        scenarioset=args.index,
-        max_load_hydro=args.load,
-        max_wind_cap=args.wind,
-        num_scenarios=args.scenarios,
-        wind_scenarios=args.wind_scenarios,
-        solver_name=args.solver,
-    )
-    run_fansi(args.index, params, fmt=fmt)
+    params = ModelParams.from_json(args.config) if args.config else ModelParams()
+    overrides = {
+        'max_load_hydro': args.load,
+        'max_wind_cap': args.wind,
+        'num_scenarios': args.scenarios,
+        'wind_scenarios': args.wind_scenarios,
+        'solver_name': args.solver,
+    }
+    for name, override in overrides.items():
+        if override is not None:
+            setattr(params, name, override)
+
+    index = args.index if args.index is not None else params.scenarioset
+    params.scenarioset = index
+    run_fansi(index, params, fmt=fmt)
+
+
+if __name__ == '__main__':
+    main()

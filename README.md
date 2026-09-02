@@ -38,6 +38,12 @@ Fansi/SOVN-style two-stage stochastic linear programming model with Benders deco
 ## Quick Start
 
 ```bash
+# Install the project and its dependencies once
+pip install -e .
+
+# The installed command works from any directory
+fansi 0
+
 # Run one scenario set (default: CSV output)
 python -m c.run 0
 
@@ -169,6 +175,20 @@ Open `index.html` in a browser. Two interactive portals:
 2. **Parameter Settings** — All 18 model parameters with defaults pre-filled
 
 Settings persist to `localStorage`. Export as `fansi_config.json` for use with Python backend.
+
+Relative paths in the exported file are resolved from the project root, independent
+of the current terminal directory. Absolute Windows and Linux paths are also
+supported. Run an exported configuration with:
+
+```bash
+fansi --config /path/to/fansi_config.json
+```
+
+The scenario index and selected CLI options can override exported values:
+
+```bash
+fansi 2 --config /path/to/fansi_config.json --solver glpk
+```
 
 ### Via Python
 
