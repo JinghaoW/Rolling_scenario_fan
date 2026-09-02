@@ -1,0 +1,8 @@
+services:
+  fansi:
+    build: .
+    image: scenario-fan:latest
+    volumes:
+      - ./a_dataset:/app/a_dataset:ro
+      - ./output_c:/app/output_c
+    command: ["0", "--solver", "glpk"]
