@@ -56,6 +56,63 @@ Legacy entry point:
 python Rolling_scenario_fan.py 0
 ```
 
+## Docker
+
+The image uses Python 3.11 and includes the open-source GLPK solver. Python
+dependencies are installed from `requirements.txt`, and the application runs as
+the non-root `appuser` account.
+
+Input files are not copied into the image. Compose mounts `a_dataset` read-only at
+`/app/a_dataset` and writes generated reports to the host `output_c` directory.
+
+### Build and run with Compose
+
+```bash
+# Build the image
+docker compose build
+
+# Run scenario set 0 with GLPK and the default parameters
+docker compose up
+
+# Run with custom CLI arguments
+docker compose run --rm fansi 0 --solver glpk --scenarios 5 --json
+
+# Display all supported command-line options
+docker compose run --rm fansi --help
+```
+
+The default command is equivalent to:
+
+```bash
+python -m c.run 0 --solver glpk
+```
+
+The complete rolling horizon covers 364 days and may take considerable time. Stop
+an attached Compose run with `Ctrl+C`.
+
+### Run with Docker directly
+
+```bash
+docker build -t scenario-fan .
+docker run --rm \
+  -v "$(pwd)/a_dataset:/app/a_dataset:ro" \
+  -v "$(pwd)/output_c:/app/output_c" \
+  scenario-fan 0 --solver glpk --html
+```
+
+On PowerShell, use `${PWD}` instead of `$(pwd)`:
+
+```powershell
+docker run --rm `
+  -v "${PWD}/a_dataset:/app/a_dataset:ro" `
+  -v "${PWD}/output_c:/app/output_c" `
+  scenario-fan 0 --solver glpk --html
+```
+
+If a newly installed Docker command is not recognized, reopen the terminal so the
+updated `PATH` is loaded. To use a licensed commercial solver, install its runtime
+and license in a derived image and pass the corresponding `--solver` value.
+
 ## Model Formulation
 
 ### Two-Stage Stochastic LP
@@ -161,9 +218,7 @@ Self-contained report with Chart.js — no server needed. Includes:
 
 ## Dependencies
 - The necessary packages are installed with `pip install -r requirements.txt`, including:
-- Python ≥ 3.9
+- Python 3.9 or later
 - Pyomo ≥ 6.0
 - CPLEX or Gurobi solver (GLPK/CBC for small tests)
 - pandas, numpy, h5py, scikit-learn, openpyxl
-
-
