@@ -8,7 +8,6 @@ Fansi/SOVN-style two-stage stochastic linear programming model with Benders deco
 .
 ├── Rolling_scenario_fan.py     # Legacy entry point (thin wrapper)
 ├── index.html                  # Interactive config & results dashboard
-├── CLAUDE.md                   # AI assistant domain context
 ├── README.md                   # This file
 │
 ├── c/                          # Main package
@@ -19,7 +18,7 @@ Fansi/SOVN-style two-stage stochastic linear programming model with Benders deco
 │   ├── io.py                   # Data loading + results export (CSV/JSON/HTML)
 │   └── run.py                  # Rolling-horizon orchestrator + CLI
 │
-├── b_read_dataset/             # Data I/O utilities
+├── b_read_dataset/             # Data I/O utilities. This is your dataset. The orginal dataset has been removed
 │   ├── __init__.py
 │   ├── h5_topology_data_reading.py  # HDF5 topology parser
 │   ├── read_inflow_daily.py         # Inflow CSV reader (Mm³ → m³/s)
